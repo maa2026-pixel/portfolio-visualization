@@ -14,9 +14,9 @@ h1{font-size:15px;margin:0 0 5px;font-weight:600}
 .sub{font-size:9px;line-height:1.6;color:#888;margin-bottom:16px}
 .section{border-top:1px solid #ddd;padding:14px 0 12px}
 .section-title{font-size:9px;font-weight:700;letter-spacing:.08em;color:#666;margin-bottom:10px}
-.mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:5px}
-.mode-btn{appearance:none;border:1px solid #bbb;background:#fff;padding:9px 6px;font-size:9px;cursor:pointer;width:100%;margin:0}
-.mode-btn.active{background:#2b2b29;color:#fff;border-color:#2b2b29}
+.chart-switch,.mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.chart-btn,.mode-btn{appearance:none;border:1px solid #bbb;background:#fff;padding:9px 6px;font-size:9px;cursor:pointer;width:100%;margin:0}
+.chart-btn.active,.mode-btn.active{background:#2b2b29;color:#fff;border-color:#2b2b29}
 .control{margin-bottom:13px}
 .control-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
 label{font-size:10px} output{font-size:9px;color:#888}
@@ -58,6 +58,14 @@ svg{display:block;width:5900px;height:calc(100vh - 32px);min-width:5900px;backgr
 <aside class="panel">
   <h1>79 Works / Timeline View</h1>
   <div class="sub">2011→2026。作品の「性質」と「デザイン領域」を、時間軸に沿って切り替えて見る。</div>
+
+  <div class="section">
+    <div class="section-title">CHART VIEW</div>
+    <div class="chart-switch">
+      <button class="chart-btn" type="button" data-view="bubble">バブルチャート</button>
+      <button class="chart-btn active" type="button" data-view="timeline">タイムライン</button>
+    </div>
+  </div>
 
   <div class="section">
     <div class="section-title">VIEW MODE</div>
@@ -478,6 +486,20 @@ document.getElementById('exportBtn').onclick=()=>{
 };
 
 draw();
+</script>
+<script>
+(() => {
+  document.querySelectorAll('.chart-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const view = btn.dataset.view;
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'portfolio-view', view }, '*');
+      } else {
+        location.href = view === 'timeline' ? 'timeline.html' : 'bubble.html';
+      }
+    });
+  });
+})();
 </script>
 </body>
 </html>

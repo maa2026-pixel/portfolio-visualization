@@ -16,12 +16,13 @@ h1{font-size:15px;margin:0 0 4px}
 .sub{font-size:9px;line-height:1.6;color:#888;margin-bottom:14px}
 .group{border-top:1px solid var(--line);padding-top:13px;margin-top:13px}
 .group-title{font-size:9px;font-weight:700;letter-spacing:.08em;color:#666;margin-bottom:9px}
-.layer-switch,.mode-switch,.work-switch{display:grid;gap:5px}
+.view-switch,.layer-switch,.mode-switch,.work-switch{display:grid;gap:5px}
+.view-switch{grid-template-columns:1fr 1fr}
 .layer-switch{grid-template-columns:1fr 1fr}
 .mode-switch{grid-template-columns:1fr 1fr}
 .work-switch{grid-template-columns:1fr 1fr}
-.layer-btn,.mode-btn,.work-btn,button{appearance:none;border:1px solid var(--line2);background:#fff;color:#333;border-radius:0;padding:7px 8px;font-size:9px;cursor:pointer}
-.layer-btn.active,.mode-btn.active,.work-btn.active{background:#272725;color:#fff;border-color:#272725}
+.view-btn,.layer-btn,.mode-btn,.work-btn,button{appearance:none;border:1px solid var(--line2);background:#fff;color:#333;border-radius:0;padding:7px 8px;font-size:9px;cursor:pointer}
+.view-btn.active,.layer-btn.active,.mode-btn.active,.work-btn.active{background:#272725;color:#fff;border-color:#272725}
 .layer-btn small,.mode-btn small,.work-btn small{display:block;font-size:7.5px;color:#999;margin-top:3px;line-height:1.35}
 .layer-btn.active small,.mode-btn.active small,.work-btn.active small{color:#ccc}
 .control{margin-bottom:11px}
@@ -31,6 +32,7 @@ input[type=range]{appearance:none;-webkit-appearance:none;width:100%;height:12px
 input[type=range]::-webkit-slider-runnable-track{height:1px;background:#bdbdb8}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:8px;height:8px;border-radius:50%;background:#333;margin-top:-3.5px}
 .check{display:flex;gap:7px;align-items:center;margin:7px 0;font-size:9px}
+input[type=checkbox]{accent-color:#222}
 .legend{display:grid;gap:1px}
 .legend-row{display:flex;align-items:center;gap:7px;min-height:21px;font-size:9px;cursor:pointer}
 .legend-row.muted{opacity:.28} .legend-row.active{font-weight:700}
@@ -55,10 +57,18 @@ svg{width:min(calc(100vw - 390px),calc(100vh - 36px));height:min(calc(100vw - 39
   <div class="sub">前の物理シミュレーションを残したまま、「作品の性質」と「デザイン領域」を切り替えられる版です。デザイン領域の色は、もう少し可愛く見えるように、薄めのネオン感は残しつつ、少しくすませたダスティパステル寄りの配色に調整しています。</div>
 
   <div class="group">
+    <div class="group-title">CHART VIEW</div>
+    <div class="view-switch">
+      <button class="view-btn active" type="button" data-view="bubble">バブルチャート</button>
+      <button class="view-btn" type="button" data-view="timeline">タイムライン</button>
+    </div>
+  </div>
+
+  <div class="group">
     <div class="group-title">LAYER</div>
     <div class="layer-switch">
-      <button class="layer-btn" data-layer="property">作品の性質<small>10分類</small></button>
-      <button class="layer-btn active" data-layer="domain">デザイン領域<small>独立評価</small></button>
+      <button class="layer-btn active" data-layer="property">作品の性質<small>10分類</small></button>
+      <button class="layer-btn" data-layer="domain">デザイン領域<small>独立評価</small></button>
     </div>
   </div>
 
@@ -487,6 +497,20 @@ document.getElementById('exportBtn').onclick=()=>{
 };
 
 buildNodes();drawLegend();step();
+</script>
+<script>
+(() => {
+  document.querySelectorAll('.view-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const view = btn.dataset.view;
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'portfolio-view', view }, '*');
+      } else {
+        location.href = view === 'timeline' ? 'timeline.html' : 'bubble.html';
+      }
+    });
+  });
+})();
 </script>
 </body>
 </html>

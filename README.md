@@ -1,8 +1,8 @@
 # Portfolio visualization — GitHub Pages package
 
-Files:
-- `index.html` — entry page with subtle Bubble / Timeline switch
-- `bubble.html` — latest circular bubble chart (v48)
-- `timeline.html` — latest timeline chart (v31)
+- `index.html` — entry page; chart switching is handled from the left sidebar
+- `bubble.html` — latest circular bubble chart (v48 base)
+- `timeline.html` — latest timeline chart (v31 base)
 
-No build step is required. Upload these three files to the root of a GitHub repository and enable GitHub Pages from the repository settings.
+Initial view: Bubble chart / 作品の性質.
+No build step is required.
