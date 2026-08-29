@@ -78,8 +78,13 @@ svg{display:block;width:5900px;height:calc(100vh - 32px);min-width:5900px;backgr
     background:#fff;color:#111;border-color:#c9c9c3;
   }
   .chart-btn.active,.mode-btn.active{background:#111;color:#fff;border-color:#111}
-  .control{margin-bottom:10px}
-  .control-head{margin-bottom:4px}
+  .control{margin-bottom:18px}
+  .control-head{margin-bottom:2px}
+  input[type=range]{height:40px;margin:0;touch-action:none}
+  input[type=range]::-webkit-slider-runnable-track{height:1px}
+  input[type=range]::-webkit-slider-thumb{width:24px;height:24px;margin-top:-11.5px;background:#111}
+  input[type=range]::-moz-range-track{height:1px;background:#bdbdb8}
+  input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radius:50%;background:#111}
   .mode-caption,.note,output,.legend-value,.summary-val{color:#666}
   label,.legend-row,.summary-row{color:#111}
   input[type=range]::-webkit-slider-thumb{background:#111}
