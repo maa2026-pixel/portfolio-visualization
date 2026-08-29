@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>16年間の制作を読み直す</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; width:100%; height:100%; overflow:hidden; background:#fff; color:#111; font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Hiragino Sans","Yu Gothic",YuGothic,Arial,sans-serif; }
+  .stage { position:relative; width:100%; height:100%; }
+  iframe { position:absolute; inset:0; width:100%; height:100%; border:0; background:#fff; }
+  .hidden { display:none; }
+</style>
+<script>
+(() => {
+  if (!window.matchMedia('(max-width: 760px)').matches) return;
+  const target = location.hash === '#timeline' ? 'timeline.html' : 'bubble.html';
+  location.replace(target);
+})();
+</script>
+</head>
+<body>
+<main class="stage">
+  <iframe id="panel-bubble" src="bubble.html" title="バブルチャート"></iframe>
+  <iframe id="panel-timeline" class="hidden" src="timeline.html" title="タイムライン"></iframe>
+</main>
+<script>
+(() => {
+  const panels = {
+    bubble: document.getElementById('panel-bubble'),
+    timeline: document.getElementById('panel-timeline')
+  };
+
+  function activate(view, updateHash = true) {
+    const next = view === 'timeline' ? 'timeline' : 'bubble';
+    Object.entries(panels).forEach(([name, panel]) => {
+      const on = name === next;
+      panel.classList.toggle('hidden', !on);
+      panel.toggleAttribute('hidden', !on);
+    });
+    if (updateHash) history.replaceState(null, '', '#' + next);
+  }
+
+  window.addEventListener('message', (event) => {
+    if (event.source !== panels.bubble.contentWindow && event.source !== panels.timeline.contentWindow) return;
+    if (!event.data || event.data.type !== 'portfolio-view') return;
+    activate(event.data.view);
+  });
+
+  window.addEventListener('hashchange', () => {
+    activate(location.hash === '#timeline' ? 'timeline' : 'bubble', false);
+  });
+
+  activate(location.hash === '#timeline' ? 'timeline' : 'bubble', false);
+})();
+</script>
+</body>
+</html>

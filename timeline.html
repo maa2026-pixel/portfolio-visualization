@@ -54,23 +54,48 @@ svg{display:block;width:5900px;height:calc(100vh - 32px);min-width:5900px;backgr
 .mode-caption{font-size:8px;color:#888;line-height:1.55;margin-top:8px}
 
 @media (max-width: 760px){
-  html,body{width:100%;height:100%;overflow:hidden;background:#fff;color:#111}
-  body{background:#fff}
-  .panel{position:fixed;left:0;right:0;top:0;bottom:auto;width:100%;height:60%;padding:14px 14px 10px;background:#fff;border-right:0;border-bottom:1px solid #d8d8d8;overflow-y:auto;overflow-x:hidden;z-index:5}
-  h1{font-size:14px;color:#111}
-  .sub{font-size:9px;color:#666;margin-bottom:12px}
-  .section{padding:11px 0 10px;border-top-color:#ddd}
-  .section-title{color:#555;margin-bottom:8px}
+  html,body{width:100%;height:100vh;height:100dvh;overflow:hidden;background:#fff;color:#111}
+  body{
+    background:#fff;
+    display:grid;grid-template-rows:minmax(0,62%) minmax(0,38%);
+    overflow:hidden;
+  }
+  .panel{
+    position:relative;left:auto;right:auto;top:auto;bottom:auto;
+    width:100%;height:auto;min-height:0;
+    padding:12px 14px 10px;background:#fff;
+    border-right:0;border-bottom:1px solid #d8d8d8;
+    overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
+    z-index:5;
+  }
+  h1{font-size:15px;margin:0 0 4px;color:#111}
+  .sub{font-size:9px;line-height:1.55;color:#666;margin-bottom:10px}
+  .section{padding:10px 0 9px;border-top-color:#ddd}
+  .section-title{color:#555;margin-bottom:7px}
   .chart-switch,.mode-switch{gap:5px}
-  .chart-btn,.mode-btn{height:auto;min-height:0;padding:7px 8px;font-size:9px;line-height:normal;background:#fff;color:#111;border-color:#c9c9c3}
+  .chart-btn,.mode-btn{
+    height:auto;min-height:0;padding:7px 8px;font-size:9px;line-height:1.35;
+    background:#fff;color:#111;border-color:#c9c9c3;
+  }
   .chart-btn.active,.mode-btn.active{background:#111;color:#fff;border-color:#111}
+  .control{margin-bottom:10px}
+  .control-head{margin-bottom:4px}
   .mode-caption,.note,output,.legend-value,.summary-val{color:#666}
   label,.legend-row,.summary-row{color:#111}
   input[type=range]::-webkit-slider-thumb{background:#111}
   input[type=range]::-moz-range-thumb{background:#111;border:0}
   #exportBtn{color:#111;border-color:#aaa;background:#fff}
-  .stage{position:fixed;left:0;right:0;top:60%;bottom:0;padding:0 0 0 6px;background:#fff;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:none}
-  .stage svg{height:860px !important;max-height:none !important;background:#fff;box-shadow:none;transform:none}
+  .stage{
+    position:relative;left:auto;right:auto;top:auto;bottom:auto;
+    width:100%;height:auto;min-height:0;
+    padding:0 0 0 6px;background:#fff;
+    overflow:auto;-webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;touch-action:auto;
+  }
+  .stage svg{
+    display:block;width:5900px;min-width:5900px;height:860px !important;max-height:none !important;
+    margin-top:-52px;background:#fff;box-shadow:none;transform:none;
+  }
   .tooltip{font-size:10px;color:#111}
 }
 </style>
@@ -446,8 +471,8 @@ function adjustMobileTimelineViewport(){
     svg.style.marginTop='';
     return;
   }
-  svg.style.marginTop=viewMode==='property' ? '-68px' : '0px';
-  requestAnimationFrame(()=>{ stage.scrollLeft=0; });
+  svg.style.marginTop=viewMode==='property' ? '-52px' : '0px';
+  requestAnimationFrame(()=>{ stage.scrollLeft=0; stage.scrollTop=0; });
 }
 
 function setMode(mode){
@@ -497,27 +522,7 @@ stage.addEventListener('wheel',e=>{
   }
 },{passive:false});
 
-// Mobile: drag the timeline freely in both directions.
-let touchPan=null;
-stage.addEventListener('touchstart',e=>{
-  if(!window.matchMedia('(max-width: 760px)').matches || e.touches.length!==1) return;
-  const t=e.touches[0];
-  touchPan={x:t.clientX,y:t.clientY,left:stage.scrollLeft,top:stage.scrollTop,moved:false};
-},{passive:true});
-
-stage.addEventListener('touchmove',e=>{
-  if(!touchPan || e.touches.length!==1) return;
-  const t=e.touches[0];
-  const dx=t.clientX-touchPan.x;
-  const dy=t.clientY-touchPan.y;
-  if(Math.abs(dx)>2 || Math.abs(dy)>2) touchPan.moved=true;
-  stage.scrollLeft=touchPan.left-dx;
-  stage.scrollTop=touchPan.top-dy;
-  e.preventDefault();
-},{passive:false});
-
-stage.addEventListener('touchend',()=>{ touchPan=null; },{passive:true});
-stage.addEventListener('touchcancel',()=>{ touchPan=null; },{passive:true});
+// Mobile uses the stage's native two-axis scrolling (overflow:auto).
 
 sizeInput.oninput=draw;
 xGapInput.oninput=draw;
@@ -556,6 +561,22 @@ window.addEventListener('resize', adjustMobileTimelineViewport);
       }
     });
   });
+})();
+</script>
+
+<script>
+(() => {
+  if (!window.matchMedia('(max-width: 760px)').matches) return;
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  const panel = document.querySelector('.panel');
+  const stage = document.getElementById('stage');
+  const resetMobileView = () => {
+    window.scrollTo(0, 0);
+    if (panel) panel.scrollTop = 0;
+    if (stage) { stage.scrollLeft = 0; stage.scrollTop = 0; }
+  };
+  window.addEventListener('pageshow', resetMobileView);
+  requestAnimationFrame(resetMobileView);
 })();
 </script>
 </body>
