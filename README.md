@@ -1,8 +1,7 @@
 # Portfolio visualization — GitHub Pages package
 
-- `index.html` — entry page; chart switching is handled from the left sidebar
-- `bubble.html` — latest circular bubble chart (v48 base)
-- `timeline.html` — latest timeline chart (v31 base)
+- `index.html` — entry page
+- `bubble.html` — bubble chart (desktop + mobile responsive)
+- `timeline.html` — timeline chart (desktop + mobile responsive; horizontal swipe on mobile)
 
-Initial view: Bubble chart / 作品の性質.
-No build step is required.
+Initial view: Bubble chart / 作品の性質. No build step is required.
