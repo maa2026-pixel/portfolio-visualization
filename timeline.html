@@ -54,15 +54,17 @@ svg{display:block;width:5900px;height:calc(100vh - 32px);min-width:5900px;backgr
 .mode-caption{font-size:8px;color:#888;line-height:1.55;margin-top:8px}
 
 @media (max-width: 760px){
-  html,body{width:100%;height:100vh;height:100dvh;overflow:hidden;background:#fff;color:#111}
+  html,body{width:100%;height:100%;overflow:hidden;background:#fff;color:#111}
   body{
+    position:fixed;inset:0;
+    width:100%;height:auto;
     background:#fff;
-    display:grid;grid-template-rows:minmax(0,62%) minmax(0,38%);
-    overflow:hidden;
+    display:grid;grid-template-rows:62fr 38fr;
+    overflow:hidden;overscroll-behavior:none;
   }
   .panel{
     position:relative;left:auto;right:auto;top:auto;bottom:auto;
-    width:100%;height:auto;min-height:0;
+    width:100%;height:100%;min-height:0;
     padding:12px 14px 10px;background:#fff;
     border-right:0;border-bottom:1px solid #d8d8d8;
     overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
@@ -92,7 +94,7 @@ svg{display:block;width:5900px;height:calc(100vh - 32px);min-width:5900px;backgr
   #exportBtn{color:#111;border-color:#aaa;background:#fff}
   .stage{
     position:relative;left:auto;right:auto;top:auto;bottom:auto;
-    width:100%;height:auto;min-height:0;
+    width:100%;height:100%;min-height:0;
     padding:0 0 0 6px;background:#fff;
     overflow:auto;-webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;touch-action:auto;
@@ -580,8 +582,11 @@ window.addEventListener('resize', adjustMobileTimelineViewport);
     if (panel) panel.scrollTop = 0;
     if (stage) { stage.scrollLeft = 0; stage.scrollTop = 0; }
   };
+  window.addEventListener('load', resetMobileView);
   window.addEventListener('pageshow', resetMobileView);
   requestAnimationFrame(resetMobileView);
+  setTimeout(resetMobileView, 60);
+  setTimeout(resetMobileView, 250);
 })();
 </script>
 </body>
