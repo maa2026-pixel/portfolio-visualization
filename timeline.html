@@ -15,8 +15,8 @@ h1{font-size:15px;margin:0 0 5px;font-weight:600}
 .section{border-top:1px solid #ddd;padding:14px 0 12px}
 .section-title{font-size:9px;font-weight:700;letter-spacing:.08em;color:#666;margin-bottom:10px}
 .chart-switch,.mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:5px}
-.chart-btn,.mode-btn{appearance:none;border:1px solid #bbb;background:#fff;padding:9px 6px;font-size:9px;cursor:pointer;width:100%;margin:0}
-.chart-btn.active,.mode-btn.active{background:#2b2b29;color:#fff;border-color:#2b2b29}
+.chart-btn,.mode-btn{appearance:none;-webkit-appearance:none;border:1px solid #bbb;background:#fff;color:#222;padding:7px 8px;font-size:9px;line-height:1.35;cursor:pointer;width:100%;margin:0;-webkit-tap-highlight-color:transparent}
+.chart-btn.active,.mode-btn.active{background:#222;color:#fff;border-color:#222}
 .control{margin-bottom:13px}
 .control-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
 label{font-size:10px} output{font-size:9px;color:#888}
@@ -53,29 +53,25 @@ svg{display:block;width:5900px;height:calc(100vh - 32px);min-width:5900px;backgr
 .hidden{display:none!important}
 .mode-caption{font-size:8px;color:#888;line-height:1.55;margin-top:8px}
 
-@media (max-width: 720px){
-  html,body{height:100%;overflow:hidden}
-  body{height:100vh;height:100dvh;display:flex;flex-direction:column}
-  .panel{position:relative;left:auto;top:auto;bottom:auto;width:100%;height:38vh;height:38dvh;flex:0 0 38vh;flex-basis:38dvh;padding:14px;background:#fafaf8;border-right:0;border-bottom:1px solid #ddd;overflow-y:auto;-webkit-overflow-scrolling:touch}
-  h1{font-size:17px;margin-bottom:5px}
-  .sub{font-size:11px;line-height:1.65;margin-bottom:12px}
-  .section{padding:12px 0 10px}
-  .section-title{font-size:10px;margin-bottom:8px}
-  .chart-btn,.mode-btn{min-height:42px;padding:9px 7px;font-size:11px}
-  .control{margin-bottom:12px}
-  label{font-size:11px}
-  output{font-size:10px}
-  input[type=range]{height:24px}
-  input[type=range]::-webkit-slider-thumb{width:16px;height:16px;margin-top:-7.5px}
-  input[type=range]::-moz-range-thumb{width:16px;height:16px;border:0;border-radius:50%;background:#333}
-  .legend-row{min-height:30px;padding:5px 3px;font-size:11px}
-  .swatch{width:10px;height:10px}
-  .summary-row{font-size:10px}
-  .mode-caption,.note{font-size:10px;line-height:1.6}
-  #exportBtn{min-height:42px;font-size:11px}
-  .stage{position:relative;left:auto;right:auto;top:auto;bottom:auto;width:100%;height:auto;flex:1;min-height:0;overflow-x:auto;overflow-y:hidden;padding:8px;background:#f5f5f2;-webkit-overflow-scrolling:touch;touch-action:pan-x}
-  svg{height:100%;width:5900px;min-width:5900px;box-shadow:none}
-  .tooltip{font-size:11px;line-height:1.5;max-width:calc(100vw - 24px)}
+@media (max-width: 760px){
+  html,body{width:100%;height:100%;overflow:hidden;background:#fff;color:#111}
+  body{background:#fff}
+  .panel{position:fixed;left:0;right:0;top:0;bottom:auto;width:100%;height:42%;padding:14px 14px 10px;background:#fff;border-right:0;border-bottom:1px solid #d8d8d8;overflow-y:auto;overflow-x:hidden;z-index:5}
+  h1{font-size:14px;color:#111}
+  .sub{font-size:9px;color:#666;margin-bottom:12px}
+  .section{padding:11px 0 10px;border-top-color:#ddd}
+  .section-title{color:#555;margin-bottom:8px}
+  .chart-switch,.mode-switch{gap:5px}
+  .chart-btn,.mode-btn{padding:7px 8px;min-height:0;background:#fff;color:#111;border-color:#aaa}
+  .chart-btn.active,.mode-btn.active{background:#111;color:#fff;border-color:#111}
+  .mode-caption,.note,output,.legend-value,.summary-val{color:#666}
+  label,.legend-row,.summary-row{color:#111}
+  input[type=range]::-webkit-slider-thumb{background:#111}
+  input[type=range]::-moz-range-thumb{background:#111;border:0}
+  #exportBtn{color:#111;border-color:#aaa;background:#fff}
+  .stage{position:fixed;left:0;right:0;top:42%;bottom:0;padding:0 0 0 6px;background:#fff;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;touch-action:pan-x}
+  .stage svg{height:860px !important;max-height:none !important;background:#fff;box-shadow:none;transform:none}
+  .tooltip{font-size:10px;color:#111}
 }
 </style>
 </head>
@@ -443,6 +439,17 @@ function draw(){
   });
 }
 
+
+function adjustMobileTimelineViewport(){
+  const mobile=window.matchMedia('(max-width: 760px)').matches;
+  if(!mobile){
+    svg.style.marginTop='';
+    return;
+  }
+  svg.style.marginTop=viewMode==='property' ? '-68px' : '0px';
+  requestAnimationFrame(()=>{ stage.scrollLeft=0; });
+}
+
 function setMode(mode){
   viewMode=mode;
   focus=null;
@@ -476,6 +483,7 @@ function setMode(mode){
   drawLegend();
   rebuildNodes();
   draw();
+  adjustMobileTimelineViewport();
 }
 
 rebuildNodes();
@@ -511,6 +519,8 @@ document.getElementById('exportBtn').onclick=()=>{
 };
 
 draw();
+adjustMobileTimelineViewport();
+window.addEventListener('resize', adjustMobileTimelineViewport);
 </script>
 <script>
 (() => {
