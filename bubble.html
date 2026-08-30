@@ -94,9 +94,24 @@ svg{width:min(calc(100vw - 390px),calc(100vh - 36px));height:min(calc(100vw - 39
   }
   #tooltip{font-size:10px;max-width:calc(100vw - 24px)}
 }
+
+/* Mobile first-paint guard: keep incomplete SVG/layout states off-screen until Safari viewport and rendering settle. */
+.mobile-boot{display:none}
+@media (max-width:760px){
+  .mobile-boot{
+    display:flex;position:fixed;inset:0;z-index:10000;
+    align-items:flex-start;justify-content:flex-start;
+    padding:12px 14px;background:#fff;color:#111;
+    opacity:1;visibility:visible;pointer-events:auto;
+  }
+  .mobile-boot-title{font-size:15px;line-height:1.35;font-weight:700;letter-spacing:0;margin:0}
+  body.mobile-ready .mobile-boot{opacity:0;visibility:hidden;pointer-events:none}
+}
+
 </style>
 </head>
 <body>
+<div class="mobile-boot" id="mobileBoot" aria-hidden="true"><p class="mobile-boot-title">79 Works — Bubble Physics</p></div>
 <div class="app">
 <aside class="panel">
   <h1>79 Works — Bubble Physics</h1>
@@ -575,5 +590,61 @@ buildNodes();drawLegend();step();
   setTimeout(resetMobileView, 250);
 })();
 </script>
+
+<script>
+(() => {
+  if (!window.matchMedia('(max-width: 760px)').matches) return;
+  const boot = document.getElementById('mobileBoot');
+  const panel = document.querySelector('.panel');
+  const stage = document.querySelector('.stage');
+  if (!boot) return;
+
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
+  const resetView = () => {
+    window.scrollTo(0, 0);
+    if (panel) panel.scrollTop = 0;
+    if (stage && stage.id === 'stage') { stage.scrollLeft = 0; stage.scrollTop = 0; }
+  };
+
+  const nextFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  const waitForStableViewport = async () => {
+    let previous = '';
+    let stableFrames = 0;
+    const started = performance.now();
+    while (stableFrames < 4 && performance.now() - started < 1000) {
+      await nextFrame();
+      const vv = window.visualViewport;
+      const w = Math.round(vv ? vv.width : window.innerWidth);
+      const h = Math.round(vv ? vv.height : window.innerHeight);
+      const current = `${w}x${h}`;
+      if (current === previous) stableFrames += 1;
+      else { previous = current; stableFrames = 0; }
+    }
+  };
+
+  const revealWhenReady = async () => {
+    if (document.readyState !== 'complete') {
+      await new Promise(resolve => window.addEventListener('load', resolve, {once:true}));
+    }
+    if (document.fonts && document.fonts.ready) {
+      try { await document.fonts.ready; } catch (_) {}
+    }
+    await waitForStableViewport();
+    resetView();
+    await nextFrame();
+    await nextFrame();
+    await wait(320);
+    resetView();
+    document.body.classList.add('mobile-ready');
+  };
+
+  window.addEventListener('pageshow', resetView);
+  revealWhenReady();
+})();
+</script>
+
 </body>
 </html>
