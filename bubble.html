@@ -42,6 +42,9 @@ input[type=checkbox]{accent-color:#222}
 .buttons .wide{grid-column:1/-1}
 .note,.stats{font-size:8px;line-height:1.6;color:#888}
 .note{margin-top:10px} .stats{margin-top:9px;border-top:1px solid var(--line);padding-top:9px}
+.control.disabled{opacity:.35}
+button:disabled,input:disabled{cursor:not-allowed;opacity:.35}
+button#boundaryBtn.active{background:#272725;color:#fff;border-color:#272725}
 .stage{position:fixed;left:350px;right:0;top:0;bottom:0;display:grid;place-items:center;padding:18px}
 svg{width:min(calc(100vw - 390px),calc(100vh - 36px));height:min(calc(100vw - 390px),calc(100vh - 36px));background:#fff;box-shadow:0 1px 12px rgba(0,0,0,.04)}
 #tooltip{position:fixed;display:none;pointer-events:none;z-index:99;padding:7px 9px;border:1px solid #ddd;background:rgba(255,255,255,.97);font-size:9px;line-height:1.5;box-shadow:0 3px 12px rgba(0,0,0,.08);max-width:300px}
@@ -132,14 +135,15 @@ svg{width:min(calc(100vw - 390px),calc(100vh - 36px));height:min(calc(100vw - 39
 
   <div class="group">
     <div class="group-title">PHYSICS / LAYOUT</div>
-    <div class="control"><div class="control-head"><label>外円サイズ</label><output id="outerROut"></output></div><input id="outerR" type="range" min="420" max="680" step="5" value="610"></div>
-    <div class="control"><div class="control-head"><label>円全体のサイズ</label><output id="sizeOut"></output></div><input id="size" type="range" min="0.35" max="6" step="0.05" value="0.72"></div>
+    <div class="control boundary-control"><div class="control-head"><label>外周の範囲</label><output id="outerROut"></output></div><input id="outerR" type="range" min="420" max="680" step="5" value="610"></div>
+    <div class="control"><div class="control-head"><label>円全体のサイズ</label><output id="sizeOut"></output></div><input id="size" type="range" min="0.10" max="8" step="0.05" value="0.72"></div>
     <div class="control"><div class="control-head"><label>円の重なり許容</label><output id="overlapOut"></output></div><input id="overlap" type="range" min="0.72" max="1.15" step="0.01" value="0.96"></div>
     <div class="control ui-hidden"><div class="control-head"><label>分類のまとまり</label><output id="categoryForceOut"></output></div><input id="categoryForce" type="range" min="0" max="0.08" step="0.002" value="0.018"></div>
     <div class="control ui-hidden"><div class="control-head"><label>データ関係の引力</label><output id="relationForceOut"></output></div><input id="relationForce" type="range" min="0" max="0.12" step="0.002" value="0.026"></div>
     <div class="control ui-hidden"><div class="control-head"><label>同一作品のまとまり</label><output id="workForceOut"></output></div><input id="workForce" type="range" min="0" max="0.12" step="0.002" value="0.020"></div>
-    <div class="control"><div class="control-head"><label>外周から中へ戻す力</label><output id="edgeForceOut"></output></div><input id="edgeForce" type="range" min="0.05" max="0.60" step="0.01" value="0.28"></div>
+    <div class="control boundary-control"><div class="control-head"><label>外周から中へ戻す力</label><output id="edgeForceOut"></output></div><input id="edgeForce" type="range" min="0.05" max="0.60" step="0.01" value="0.28"></div>
     <div class="control"><div class="control-head"><label>中央への圧縮</label><output id="densityForceOut"></output></div><input id="densityForce" type="range" min="0" max="0.004" step="0.0001" value="0.0007"></div>
+    <button id="boundaryBtn" type="button">外縁に収めない</button>
 
     <div class="check"><input id="showLinks" type="checkbox" checked><label for="showLinks">ホバー時に関係線を表示</label></div>
     <div class="check"><input id="colorGroupMode" type="checkbox"><label for="colorGroupMode">色のまとまり優先</label></div>
@@ -233,9 +237,10 @@ const ids=['outerR','size','overlap','categoryForce','relationForce','workForce'
 const ctl=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
 const out=Object.fromEntries(ids.map(id=>[id,document.getElementById(id+'Out')]));
 
-let layer='property',mode='relation',paused=false,grayscale=false,focus=null,currentHighlight='all';
-let nodes=[],nodeEls=[],neighbors=[],drag=null,seed=11;
+let layer='property',mode='relation',paused=false,grayscale=false,focus=null,currentHighlight='all',freeBoundary=false;
+let nodes=[],nodeEls=[],neighbors=[],drag=null,seed=11,maxNodeRadius=0,lastDrawAt=0,lastPhysicsAt=0;
 let zSeed=20260827;
+const DRAW_INTERVAL=1000/30;
 
 function rand(){seed=(1664525*seed+1013904223)>>>0;return seed/4294967296}
 function zValue(i){
@@ -270,6 +275,11 @@ function highlightLabel(){ return (WORK_HIGHLIGHTS[currentHighlight]||WORK_HIGHL
 
 function transformed(v){return +v}
 function radius(d){return scoreRadius(transformed(d.weight))*(+ctl.size.value)}
+function updateRadii(){
+  maxNodeRadius=0;
+  nodes.forEach(n=>{n.r=radius(n);if(n.r>maxNodeRadius)maxNodeRadius=n.r;});
+  nodeEls.forEach((el,i)=>el.setAttribute('r',nodes[i].r));
+}
 
 function buildNodes(){
   nodes=raw().map((d,i)=>({...d,id:i,x:CX,y:CY,vx:0,vy:0,r:radius(d),fixed:false}));
@@ -299,6 +309,7 @@ function buildNodes(){
     frag.appendChild(c);nodeEls.push(c);
   });
   nodesG.appendChild(frag);
+  updateRadii();
   // Mix the SVG paint order so one category/color does not systematically sit on top.
   applyZOrder();
   // First paint immediately. Relation graph is prepared just after the page becomes visible.
@@ -353,24 +364,28 @@ function buildRelations(){
 }
 
 function categoryCenters(){
-  const R=+ctl.outerR.value*0.52;const cs=cats();const map={};
+  const R=freeBoundary?560:+ctl.outerR.value*0.52;const cs=cats();const map={};
   cs.forEach((c,i)=>{const a=-Math.PI/2+2*Math.PI*i/cs.length;map[c]=[CX+R*Math.cos(a),CY+R*Math.sin(a)];});
   return map;
 }
 function workCenters(){
-  const R=+ctl.outerR.value*0.78, map={}, golden=Math.PI*(3-Math.sqrt(5));
+  const R=freeBoundary?650:+ctl.outerR.value*0.78, map={}, golden=Math.PI*(3-Math.sqrt(5));
   const ws=[...new Set(nodes.map(n=>n.work))];
   ws.forEach((w,i)=>{const t=(i+.7)/(ws.length+.5),rr=Math.sqrt(t)*R,a=i*golden;map[w]=[CX+rr*Math.cos(a),CY+rr*Math.sin(a)];});
   return map;
 }
 function yearCenters(){
-  const ys=[...new Set(nodes.map(n=>n.yearN))].sort((a,b)=>a-b),map={},R=+ctl.outerR.value*0.62;
+  const ys=[...new Set(nodes.map(n=>n.yearN))].sort((a,b)=>a-b),map={},R=freeBoundary?600:+ctl.outerR.value*0.62;
   ys.forEach((y,i)=>{const a=-Math.PI*.82+(i/Math.max(1,ys.length-1))*Math.PI*1.64;map[y]=[CX+R*Math.cos(a),CY+R*Math.sin(a)];});
   return map;
 }
 
 function resetPositions(){
   seed++;
+  if(freeBoundary){
+    nodes.forEach(n=>{const pad=n.r+4;n.x=pad+rand()*(1400-pad*2);n.y=pad+rand()*(1400-pad*2);n.vx=(rand()-.5)*1.2;n.vy=(rand()-.5)*1.2;n.fixed=false;});
+    return;
+  }
   const R=+ctl.outerR.value*0.72;
   nodes.forEach(n=>{const a=rand()*Math.PI*2,rr=Math.sqrt(rand())*R;n.x=CX+Math.cos(a)*rr;n.y=CY+Math.sin(a)*rr;n.vx=(rand()-.5)*1.2;n.vy=(rand()-.5)*1.2;n.fixed=false;});
 }
@@ -378,15 +393,41 @@ function resetPositions(){
 function containAll(){
   const R=+ctl.outerR.value;
   nodes.forEach(n=>{
-    n.r=radius(n);
     const dx=n.x-CX,dy=n.y-CY,d=Math.hypot(dx,dy)||1,maxD=Math.max(1,R-n.r-3);
     if(d>maxD){n.x=CX+dx/d*maxD;n.y=CY+dy/d*maxD;n.vx*=.15;n.vy*=.15;}
   });
 }
 
+function containViewport(){
+  nodes.forEach(n=>{
+    const pad=n.r+2;
+    n.x=Math.max(pad,Math.min(1400-pad,n.x));
+    n.y=Math.max(pad,Math.min(1400-pad,n.y));
+  });
+}
+
+function setBoundaryMode(nextFree){
+  freeBoundary=nextFree;
+  const boundaryBtn=document.getElementById('boundaryBtn');
+  boundaryBtn.textContent=freeBoundary?'外縁に収める':'外縁に収めない';
+  boundaryBtn.classList.toggle('active',freeBoundary);
+  document.querySelectorAll('.boundary-control').forEach(el=>{
+    el.classList.toggle('disabled',freeBoundary);
+    el.querySelectorAll('input').forEach(input=>input.disabled=freeBoundary);
+  });
+  document.getElementById('containBtn').disabled=freeBoundary;
+  document.getElementById('fitBtn').disabled=freeBoundary;
+  resetPositions();
+  if(!freeBoundary)containAll();
+  document.getElementById('note').textContent=freeBoundary
+    ?'外縁の収まり制約なし。外周円は表示したまま、画面全体に配置します。外周関連の操作は無効です。'
+    :'物理シミュレーションは常時動作。ドラッグもできます。';
+  draw();
+}
+
 function fitOuter(){
   let max=0;
-  nodes.forEach(n=>{max=Math.max(max,Math.hypot(n.x-CX,n.y-CY)+radius(n));});
+  nodes.forEach(n=>{max=Math.max(max,Math.hypot(n.x-CX,n.y-CY)+n.r);});
   ctl.outerR.value=Math.max(+ctl.outerR.min,Math.min(+ctl.outerR.max,Math.ceil(max+16)));
   boundary.setAttribute('r',ctl.outerR.value);
   updateOutputs();
@@ -404,18 +445,20 @@ function updateOutputs(){
 }
 
 const MOBILE_RUNTIME=window.matchMedia('(max-width: 760px)').matches;
-let lastMobileFrame=0;
+const PHYSICS_INTERVAL=MOBILE_RUNTIME?1000/24:1000/30;
 function step(ts=performance.now()){
-  if(MOBILE_RUNTIME && ts-lastMobileFrame<42){ requestAnimationFrame(step); return; }
-  if(MOBILE_RUNTIME) lastMobileFrame=ts;
+  if(ts-lastPhysicsAt<PHYSICS_INTERVAL){ requestAnimationFrame(step); return; }
+  lastPhysicsAt=ts;
   if(!paused){
     const R=+ctl.outerR.value,overlap=+ctl.overlap.value;
     const catF=+ctl.categoryForce.value,relF=+ctl.relationForce.value,workF=+ctl.workForce.value;
     const edgeF=+ctl.edgeForce.value,density=+ctl.densityForce.value;
-    const cCenters=categoryCenters(),wCenters=workCenters(),yCenters=yearCenters();
     const colorPriority=document.getElementById('colorGroupMode').checked;
+    const cCenters=(mode==='category'||colorPriority)?categoryCenters():null;
+    const wCenters=mode==='work'?workCenters():null;
+    const yCenters=mode==='time'?yearCenters():null;
 
-    nodes.forEach(n=>{n.r=radius(n);if(n.fixed)return;
+    nodes.forEach(n=>{if(n.fixed)return;
       let tx=CX,ty=CY,k=0;
       if(mode==='category'||colorPriority){[tx,ty]=cCenters[n.category];k=catF*0.18;}
       else if(mode==='work'){[tx,ty]=wCenters[n.work];k=workF*0.20;}
@@ -424,8 +467,10 @@ function step(ts=performance.now()){
       n.vx+=(tx-n.x)*k;n.vy+=(ty-n.y)*k;
       n.vx+=(CX-n.x)*density;n.vy+=(CY-n.y)*density;
 
-      const dx=n.x-CX,dy=n.y-CY,d=Math.hypot(dx,dy)||1,maxD=R-n.r-2;
-      if(d>maxD){const ex=d-maxD;n.vx-=(dx/d)*ex*edgeF;n.vy-=(dy/d)*ex*edgeF;}
+      if(!freeBoundary){
+        const dx=n.x-CX,dy=n.y-CY,d=Math.hypot(dx,dy)||1,maxD=R-n.r-2;
+        if(d>maxD){const ex=d-maxD;n.vx-=(dx/d)*ex*edgeF;n.vy-=(dy/d)*ex*edgeF;}
+      }
     });
 
     // Relation springs
@@ -451,7 +496,7 @@ function step(ts=performance.now()){
     }
 
     // Collision with grid
-    const maxR=Math.max(...nodes.map(n=>n.r)),cell=Math.max(18,maxR*2.2),grid=new Map();
+    const cell=Math.max(18,maxNodeRadius*2.2),grid=new Map();
     const key=(x,y)=>x+','+y;
     nodes.forEach((n,i)=>{const ix=Math.floor(n.x/cell),iy=Math.floor(n.y/cell),k=key(ix,iy);if(!grid.has(k))grid.set(k,[]);grid.get(k).push(i)});
     for(let i=0;i<nodes.length;i++){const a=nodes[i],ix=Math.floor(a.x/cell),iy=Math.floor(a.y/cell);
@@ -463,14 +508,17 @@ function step(ts=performance.now()){
     }
 
     nodes.forEach(n=>{if(n.fixed)return;n.vx*=.84;n.vy*=.84;const s=Math.hypot(n.vx,n.vy),mx=2.4;if(s>mx){n.vx=n.vx/s*mx;n.vy=n.vy/s*mx};n.x+=n.vx;n.y+=n.vy;});
-    containAll();
+    if(freeBoundary)containViewport();else containAll();
   }
   draw();
   requestAnimationFrame(step);
 }
 
 function draw(){
-  updateOutputs();boundary.setAttribute('r',ctl.outerR.value);
+  const now=performance.now();
+  if(now-lastDrawAt<DRAW_INTERVAL)return;
+  lastDrawAt=now;
+  boundary.setAttribute('r',ctl.outerR.value);boundary.setAttribute('visibility','visible');
   const pal=palette();const cs=cats();
 
   // guides
@@ -494,20 +542,20 @@ function draw(){
     if(mutedByFocus && inWorkFocus){ fill='#fff'; stroke='#aaa'; opacity=0.95; sw=0.6; }
     if(currentHighlight!=='all' && !inWorkFocus){ fill='#ffffff'; stroke='#bdbdbd'; opacity=1; sw=0.55; }
     if(currentHighlight!=='all' && inWorkFocus && !mutedByFocus){ sw=0.95; }
-    el.setAttribute('cx',n.x);el.setAttribute('cy',n.y);el.setAttribute('r',n.r);
+    el.setAttribute('cx',n.x);el.setAttribute('cy',n.y);
     el.setAttribute('fill',fill);el.setAttribute('stroke',stroke);el.setAttribute('stroke-width',sw);el.setAttribute('opacity',opacity);
   });
 
   // Keep focused works in front, while preserving a mixed/randomized order within each layer.
-  if(currentHighlight!=='all') applyZOrder();
-
   drawLinks();
 }
 
 function drawLinks(){
+  if(mode!=='relation'||!document.getElementById('showLinks').checked||!tooltip.style.display||tooltip.style.display==='none'){
+    if(linksG.childNodes.length)linksG.innerHTML='';
+    return;
+  }
   linksG.innerHTML='';
-  if(mode!=='relation'||!document.getElementById('showLinks').checked)return;
-  if(!tooltip.style.display||tooltip.style.display==='none')return;
 }
 
 function drawLegend(){
@@ -530,17 +578,19 @@ function drawLegend(){
 }
 
 document.querySelectorAll('.layer-btn').forEach(btn=>btn.onclick=()=>{layer=btn.dataset.layer;focus=null;document.querySelectorAll('.layer-btn').forEach(b=>b.classList.toggle('active',b===btn));buildNodes();drawLegend();});
-document.querySelectorAll('.mode-btn').forEach(btn=>btn.onclick=()=>{mode=btn.dataset.mode;document.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b===btn));});
+document.querySelectorAll('.mode-btn').forEach(btn=>btn.onclick=()=>{mode=btn.dataset.mode;document.querySelectorAll('.mode-btn').forEach(b=>b.classList.toggle('active',b===btn));resetPositions();draw();});
 document.querySelectorAll('.work-btn').forEach(btn=>btn.onclick=()=>{
   currentHighlight=btn.dataset.highlight;
   document.querySelectorAll('.work-btn').forEach(b=>b.classList.toggle('active',b===btn));
+  applyZOrder();
   drawLegend();
   draw();
 });
 ids.forEach(id=>ctl[id].oninput=()=>{
   updateOutputs();
   if(id==='outerR'||id==='size'){
-    containAll();
+    if(id==='size')updateRadii();
+    if(freeBoundary)containViewport();else containAll();
     draw();
   }
 });
@@ -549,6 +599,7 @@ document.getElementById('resetBtn').onclick=resetPositions;
 document.getElementById('shuffleZBtn').onclick=shuffleZOrder;
 document.getElementById('containBtn').onclick=containAll;
 document.getElementById('fitBtn').onclick=fitOuter;
+document.getElementById('boundaryBtn').onclick=()=>setBoundaryMode(!freeBoundary);
 document.getElementById('grayBtn').onclick=()=>{grayscale=!grayscale};
 document.getElementById('exportBtn').onclick=()=>{
   const clone=svg.cloneNode(true);clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
@@ -558,6 +609,7 @@ document.getElementById('exportBtn').onclick=()=>{
 
 function initBubbleVisualization(){
   buildNodes();
+  updateOutputs();
   drawLegend();
   step();
 }
