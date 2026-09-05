@@ -144,7 +144,7 @@ svg{width:min(calc(100vw - 390px),calc(100vh - 36px));height:min(calc(100vw - 39
     <div class="control ui-hidden"><div class="control-head"><label>データ関係の引力</label><output id="relationForceOut"></output></div><input id="relationForce" type="range" min="0" max="0.12" step="0.002" value="0.026"></div>
     <div class="control ui-hidden"><div class="control-head"><label>同一作品のまとまり</label><output id="workForceOut"></output></div><input id="workForce" type="range" min="0" max="0.12" step="0.002" value="0.020"></div>
     <div class="control boundary-control"><div class="control-head"><label>外周から中へ戻す力</label><output id="edgeForceOut"></output></div><input id="edgeForce" type="range" min="0.05" max="0.60" step="0.01" value="0.28"></div>
-    <div class="control"><div class="control-head"><label>外側への拡散</label><output id="spreadForceOut"></output></div><input id="spreadForce" type="range" min="0" max="0.004" step="0.0001" value="0.0007"></div>
+    <div class="control"><div class="control-head"><label>円同士の押し広げ</label><output id="spreadForceOut"></output></div><input id="spreadForce" type="range" min="0" max="0.004" step="0.0001" value="0.0007"></div>
     <div class="control">
       <div class="control-head"><label>外縁の収まり</label><output id="boundaryState">未適用</output></div>
       <div class="boundary-toggle">
@@ -478,7 +478,6 @@ function step(ts=performance.now()){
       else if(mode==='time'){[tx,ty]=yCenters[n.yearN];k=0.006;}
       else {k=0;}
       n.vx+=(tx-n.x)*k;n.vy+=(ty-n.y)*k;
-      n.vx+=(n.x-CX)*spread;n.vy+=(n.y-CY)*spread;
 
       if(!freeBoundary){
         const dx=n.x-CX,dy=n.y-CY,d=Math.hypot(dx,dy)||1,maxD=R-n.r-2;
@@ -509,13 +508,14 @@ function step(ts=performance.now()){
     }
 
     // Collision with grid
-    const cell=Math.max(18,maxNodeRadius*2.2),grid=new Map();
+    const spreadGap=spread*1800;
+    const cell=Math.max(18,maxNodeRadius*2.2+spreadGap),grid=new Map();
     const key=(x,y)=>x+','+y;
     nodes.forEach((n,i)=>{const ix=Math.floor(n.x/cell),iy=Math.floor(n.y/cell),k=key(ix,iy);if(!grid.has(k))grid.set(k,[]);grid.get(k).push(i)});
     for(let i=0;i<nodes.length;i++){const a=nodes[i],ix=Math.floor(a.x/cell),iy=Math.floor(a.y/cell);
       for(let gx=ix-1;gx<=ix+1;gx++)for(let gy=iy-1;gy<=iy+1;gy++){const arr=grid.get(key(gx,gy));if(!arr)continue;
-        for(const j of arr){if(j<=i)continue;const b=nodes[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.001,minD=overlap*(a.r+b.r);
-          if(d<minD){const push=(minD-d)*.16,ux=dx/d,uy=dy/d;if(!a.fixed){a.vx-=ux*push;a.vy-=uy*push};if(!b.fixed){b.vx+=ux*push;b.vy+=uy*push}}
+        for(const j of arr){if(j<=i)continue;const b=nodes[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.001,minD=overlap*(a.r+b.r),targetD=minD+spreadGap;
+          if(d<targetD){const push=d<minD?(minD-d)*.16:(targetD-d)*Math.max(.02,spread*40),ux=dx/d,uy=dy/d;if(!a.fixed){a.vx-=ux*push;a.vy-=uy*push};if(!b.fixed){b.vx+=ux*push;b.vy+=uy*push}}
         }
       }
     }
