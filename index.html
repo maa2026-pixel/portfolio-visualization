@@ -44,7 +44,9 @@ input[type=checkbox]{accent-color:#222}
 .note{margin-top:10px} .stats{margin-top:9px;border-top:1px solid var(--line);padding-top:9px}
 .control.disabled{opacity:.35}
 button:disabled,input:disabled{cursor:not-allowed;opacity:.35}
-button#boundaryBtn.active{background:#272725;color:#fff;border-color:#272725}
+.boundary-toggle{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.boundary-toggle button{padding:7px 6px;font-size:9px}
+.boundary-toggle button.active{background:#272725;color:#fff;border-color:#272725}
 .stage{position:fixed;left:350px;right:0;top:0;bottom:0;display:grid;place-items:center;padding:18px}
 svg{width:min(calc(100vw - 390px),calc(100vh - 36px));height:min(calc(100vw - 390px),calc(100vh - 36px));background:#fff;box-shadow:0 1px 12px rgba(0,0,0,.04)}
 #tooltip{position:fixed;display:none;pointer-events:none;z-index:99;padding:7px 9px;border:1px solid #ddd;background:rgba(255,255,255,.97);font-size:9px;line-height:1.5;box-shadow:0 3px 12px rgba(0,0,0,.08);max-width:300px}
@@ -142,8 +144,14 @@ svg{width:min(calc(100vw - 390px),calc(100vh - 36px));height:min(calc(100vw - 39
     <div class="control ui-hidden"><div class="control-head"><label>データ関係の引力</label><output id="relationForceOut"></output></div><input id="relationForce" type="range" min="0" max="0.12" step="0.002" value="0.026"></div>
     <div class="control ui-hidden"><div class="control-head"><label>同一作品のまとまり</label><output id="workForceOut"></output></div><input id="workForce" type="range" min="0" max="0.12" step="0.002" value="0.020"></div>
     <div class="control boundary-control"><div class="control-head"><label>外周から中へ戻す力</label><output id="edgeForceOut"></output></div><input id="edgeForce" type="range" min="0.05" max="0.60" step="0.01" value="0.28"></div>
-    <div class="control"><div class="control-head"><label>中央への圧縮</label><output id="densityForceOut"></output></div><input id="densityForce" type="range" min="0" max="0.004" step="0.0001" value="0.0007"></div>
-    <button id="boundaryBtn" type="button">外縁に収めない</button>
+    <div class="control"><div class="control-head"><label>外側への拡散</label><output id="spreadForceOut"></output></div><input id="spreadForce" type="range" min="0" max="0.004" step="0.0001" value="0.0007"></div>
+    <div class="control">
+      <div class="control-head"><label>外縁の収まり</label><output id="boundaryState">ON：円内</output></div>
+      <div class="boundary-toggle" role="group" aria-label="外縁の収まり">
+        <button id="boundaryContainBtn" type="button" class="active" aria-pressed="true">ON：円内に収める</button>
+        <button id="boundaryFreeBtn" type="button" aria-pressed="false">OFF：画面全体</button>
+      </div>
+    </div>
 
     <div class="check"><input id="showLinks" type="checkbox" checked><label for="showLinks">ホバー時に関係線を表示</label></div>
     <div class="check"><input id="colorGroupMode" type="checkbox"><label for="colorGroupMode">色のまとまり優先</label></div>
@@ -233,7 +241,7 @@ const linksG=document.getElementById('links');
 const guidesG=document.getElementById('guides');
 const tooltip=document.getElementById('tooltip');
 
-const ids=['outerR','size','overlap','categoryForce','relationForce','workForce','edgeForce','densityForce'];
+const ids=['outerR','size','overlap','categoryForce','relationForce','workForce','edgeForce','spreadForce'];
 const ctl=Object.fromEntries(ids.map(id=>[id,document.getElementById(id)]));
 const out=Object.fromEntries(ids.map(id=>[id,document.getElementById(id+'Out')]));
 
@@ -407,10 +415,15 @@ function containViewport(){
 }
 
 function setBoundaryMode(nextFree){
+  if(nextFree===freeBoundary)return;
   freeBoundary=nextFree;
-  const boundaryBtn=document.getElementById('boundaryBtn');
-  boundaryBtn.textContent=freeBoundary?'外縁に収める':'外縁に収めない';
-  boundaryBtn.classList.toggle('active',freeBoundary);
+  const boundaryContainBtn=document.getElementById('boundaryContainBtn');
+  const boundaryFreeBtn=document.getElementById('boundaryFreeBtn');
+  boundaryContainBtn.classList.toggle('active',!freeBoundary);
+  boundaryFreeBtn.classList.toggle('active',freeBoundary);
+  boundaryContainBtn.setAttribute('aria-pressed',String(!freeBoundary));
+  boundaryFreeBtn.setAttribute('aria-pressed',String(freeBoundary));
+  document.getElementById('boundaryState').textContent=freeBoundary?'OFF：画面全体':'ON：円内';
   document.querySelectorAll('.boundary-control').forEach(el=>{
     el.classList.toggle('disabled',freeBoundary);
     el.querySelectorAll('input').forEach(input=>input.disabled=freeBoundary);
@@ -441,7 +454,7 @@ function updateOutputs(){
   out.relationForce.textContent=(+ctl.relationForce.value).toFixed(3);
   out.workForce.textContent=(+ctl.workForce.value).toFixed(3);
   out.edgeForce.textContent=(+ctl.edgeForce.value).toFixed(2);
-  out.densityForce.textContent=(+ctl.densityForce.value).toFixed(4);
+  out.spreadForce.textContent=(+ctl.spreadForce.value).toFixed(4);
 }
 
 const MOBILE_RUNTIME=window.matchMedia('(max-width: 760px)').matches;
@@ -452,7 +465,7 @@ function step(ts=performance.now()){
   if(!paused){
     const R=+ctl.outerR.value,overlap=+ctl.overlap.value;
     const catF=+ctl.categoryForce.value,relF=+ctl.relationForce.value,workF=+ctl.workForce.value;
-    const edgeF=+ctl.edgeForce.value,density=+ctl.densityForce.value;
+    const edgeF=+ctl.edgeForce.value,spread=+ctl.spreadForce.value;
     const colorPriority=document.getElementById('colorGroupMode').checked;
     const cCenters=(mode==='category'||colorPriority)?categoryCenters():null;
     const wCenters=mode==='work'?workCenters():null;
@@ -465,7 +478,7 @@ function step(ts=performance.now()){
       else if(mode==='time'){[tx,ty]=yCenters[n.yearN];k=0.006;}
       else {k=0;}
       n.vx+=(tx-n.x)*k;n.vy+=(ty-n.y)*k;
-      n.vx+=(CX-n.x)*density;n.vy+=(CY-n.y)*density;
+      n.vx+=(n.x-CX)*spread;n.vy+=(n.y-CY)*spread;
 
       if(!freeBoundary){
         const dx=n.x-CX,dy=n.y-CY,d=Math.hypot(dx,dy)||1,maxD=R-n.r-2;
@@ -599,7 +612,8 @@ document.getElementById('resetBtn').onclick=resetPositions;
 document.getElementById('shuffleZBtn').onclick=shuffleZOrder;
 document.getElementById('containBtn').onclick=containAll;
 document.getElementById('fitBtn').onclick=fitOuter;
-document.getElementById('boundaryBtn').onclick=()=>setBoundaryMode(!freeBoundary);
+document.getElementById('boundaryContainBtn').onclick=()=>setBoundaryMode(false);
+document.getElementById('boundaryFreeBtn').onclick=()=>setBoundaryMode(true);
 document.getElementById('grayBtn').onclick=()=>{grayscale=!grayscale};
 document.getElementById('exportBtn').onclick=()=>{
   const clone=svg.cloneNode(true);clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
