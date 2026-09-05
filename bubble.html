@@ -139,7 +139,7 @@ svg{width:min(calc(100vw - 390px),calc(100vh - 36px));height:min(calc(100vw - 39
     <div class="group-title">PHYSICS / LAYOUT</div>
     <div class="control boundary-control"><div class="control-head"><label>外周の範囲</label><output id="outerROut"></output></div><input id="outerR" type="range" min="420" max="680" step="5" value="610"></div>
     <div class="control"><div class="control-head"><label>円全体のサイズ</label><output id="sizeOut"></output></div><input id="size" type="range" min="0.10" max="8" step="0.05" value="0.72"></div>
-    <div class="control"><div class="control-head"><label>円の重なり許容</label><output id="overlapOut"></output></div><input id="overlap" type="range" min="0.72" max="1.15" step="0.01" value="0.96"></div>
+    <div class="control"><div class="control-head"><label>円の重なり許容</label><output id="overlapOut"></output></div><input id="overlap" type="range" min="0" max="0.30" step="0.01" value="0"></div>
     <div class="control ui-hidden"><div class="control-head"><label>分類のまとまり</label><output id="categoryForceOut"></output></div><input id="categoryForce" type="range" min="0" max="0.08" step="0.002" value="0.018"></div>
     <div class="control ui-hidden"><div class="control-head"><label>データ関係の引力</label><output id="relationForceOut"></output></div><input id="relationForce" type="range" min="0" max="0.12" step="0.002" value="0.026"></div>
     <div class="control ui-hidden"><div class="control-head"><label>同一作品のまとまり</label><output id="workForceOut"></output></div><input id="workForce" type="range" min="0" max="0.12" step="0.002" value="0.020"></div>
@@ -449,7 +449,7 @@ function fitOuter(){
 function updateOutputs(){
   out.outerR.textContent=ctl.outerR.value+' px';
   out.size.textContent=(+ctl.size.value).toFixed(2)+'×';
-  out.overlap.textContent=(+ctl.overlap.value).toFixed(2);
+  out.overlap.textContent=Math.round(+ctl.overlap.value*100)+'%';
   out.categoryForce.textContent=(+ctl.categoryForce.value).toFixed(3);
   out.relationForce.textContent=(+ctl.relationForce.value).toFixed(3);
   out.workForce.textContent=(+ctl.workForce.value).toFixed(3);
@@ -463,7 +463,7 @@ function step(ts=performance.now()){
   if(ts-lastPhysicsAt<PHYSICS_INTERVAL){ requestAnimationFrame(step); return; }
   lastPhysicsAt=ts;
   if(!paused){
-    const R=+ctl.outerR.value,overlap=+ctl.overlap.value;
+    const R=+ctl.outerR.value,overlapAllowance=+ctl.overlap.value;
     const catF=+ctl.categoryForce.value,relF=+ctl.relationForce.value,workF=+ctl.workForce.value;
     const edgeF=+ctl.edgeForce.value,spread=+ctl.spreadForce.value;
     const colorPriority=document.getElementById('colorGroupMode').checked;
@@ -507,20 +507,31 @@ function step(ts=performance.now()){
       });
     }
 
-    // Collision with grid
+    nodes.forEach(n=>{if(n.fixed)return;n.vx*=.84;n.vy*=.84;const s=Math.hypot(n.vx,n.vy),mx=2.4;if(s>mx){n.vx=n.vx/s*mx;n.vy=n.vy/s*mx};n.x+=n.vx;n.y+=n.vy;});
+
+    // Collision with grid. overlapAllowance=0 means circles cannot overlap.
+    // Rebuild the grid on each pass so positional corrections cannot leave
+    // a pair behind in a stale cell.
     const spreadGap=spread*1800;
-    const cell=Math.max(18,maxNodeRadius*2.2+spreadGap),grid=new Map();
+    const cell=Math.max(18,maxNodeRadius*2.2+spreadGap);
     const key=(x,y)=>x+','+y;
-    nodes.forEach((n,i)=>{const ix=Math.floor(n.x/cell),iy=Math.floor(n.y/cell),k=key(ix,iy);if(!grid.has(k))grid.set(k,[]);grid.get(k).push(i)});
-    for(let i=0;i<nodes.length;i++){const a=nodes[i],ix=Math.floor(a.x/cell),iy=Math.floor(a.y/cell);
-      for(let gx=ix-1;gx<=ix+1;gx++)for(let gy=iy-1;gy<=iy+1;gy++){const arr=grid.get(key(gx,gy));if(!arr)continue;
-        for(const j of arr){if(j<=i)continue;const b=nodes[j],dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||.001,minD=overlap*(a.r+b.r),targetD=minD+spreadGap;
-          if(d<targetD){const push=d<minD?(minD-d)*.16:(targetD-d)*Math.max(.02,spread*40),ux=dx/d,uy=dy/d;if(!a.fixed){a.vx-=ux*push;a.vy-=uy*push};if(!b.fixed){b.vx+=ux*push;b.vy+=uy*push}}
+    for(let pass=0;pass<5;pass++){
+      if(freeBoundary)containViewport();else containAll();
+      const grid=new Map();
+      nodes.forEach((n,i)=>{const ix=Math.floor(n.x/cell),iy=Math.floor(n.y/cell),k=key(ix,iy);if(!grid.has(k))grid.set(k,[]);grid.get(k).push(i)});
+      for(let i=0;i<nodes.length;i++){const a=nodes[i],ix=Math.floor(a.x/cell),iy=Math.floor(a.y/cell);
+        for(let gx=ix-1;gx<=ix+1;gx++)for(let gy=iy-1;gy<=iy+1;gy++){const arr=grid.get(key(gx,gy));if(!arr)continue;
+          for(const j of arr){if(j<=i)continue;const b=nodes[j];let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(!d){dx=.001;dy=0;d=.001}
+            const minD=(1-overlapAllowance)*(a.r+b.r),targetD=minD+spreadGap;
+            if(d<targetD){
+              const correction=(targetD-d)/d,moveA=a.fixed?0:(b.fixed?1:.5),moveB=b.fixed?0:(a.fixed?1:.5);
+              if(!a.fixed){a.x-=dx*correction*moveA;a.y-=dy*correction*moveA;a.vx*=.65;a.vy*=.65}
+              if(!b.fixed){b.x+=dx*correction*moveB;b.y+=dy*correction*moveB;b.vx*=.65;b.vy*=.65}
+            }
+          }
         }
       }
     }
-
-    nodes.forEach(n=>{if(n.fixed)return;n.vx*=.84;n.vy*=.84;const s=Math.hypot(n.vx,n.vy),mx=2.4;if(s>mx){n.vx=n.vx/s*mx;n.vy=n.vy/s*mx};n.x+=n.vx;n.y+=n.vy;});
     if(freeBoundary)containViewport();else containAll();
   }
   draw();
