@@ -44,9 +44,9 @@ input[type=checkbox]{accent-color:#222}
 .note{margin-top:10px} .stats{margin-top:9px;border-top:1px solid var(--line);padding-top:9px}
 .control.disabled{opacity:.35}
 button:disabled,input:disabled{cursor:not-allowed;opacity:.35}
-.boundary-toggle{display:grid;grid-template-columns:1fr 1fr;gap:5px}
-.boundary-toggle button{padding:7px 6px;font-size:9px}
+.boundary-toggle button{width:100%;padding:8px 9px;font-size:9px;text-align:left}
 .boundary-toggle button.active{background:#272725;color:#fff;border-color:#272725}
+.boundary-help{margin-top:5px;font-size:8px;line-height:1.5;color:#888}
 .stage{position:fixed;left:350px;right:0;top:0;bottom:0;display:grid;place-items:center;padding:18px}
 svg{width:min(calc(100vw - 390px),calc(100vh - 36px));height:min(calc(100vw - 390px),calc(100vh - 36px));background:#fff;box-shadow:0 1px 12px rgba(0,0,0,.04)}
 #tooltip{position:fixed;display:none;pointer-events:none;z-index:99;padding:7px 9px;border:1px solid #ddd;background:rgba(255,255,255,.97);font-size:9px;line-height:1.5;box-shadow:0 3px 12px rgba(0,0,0,.08);max-width:300px}
@@ -146,11 +146,11 @@ svg{width:min(calc(100vw - 390px),calc(100vh - 36px));height:min(calc(100vw - 39
     <div class="control boundary-control"><div class="control-head"><label>外周から中へ戻す力</label><output id="edgeForceOut"></output></div><input id="edgeForce" type="range" min="0.05" max="0.60" step="0.01" value="0.28"></div>
     <div class="control"><div class="control-head"><label>外側への拡散</label><output id="spreadForceOut"></output></div><input id="spreadForce" type="range" min="0" max="0.004" step="0.0001" value="0.0007"></div>
     <div class="control">
-      <div class="control-head"><label>外縁の収まり</label><output id="boundaryState">ON：円内</output></div>
-      <div class="boundary-toggle" role="group" aria-label="外縁の収まり">
-        <button id="boundaryContainBtn" type="button" class="active" aria-pressed="true">ON：円内に収める</button>
-        <button id="boundaryFreeBtn" type="button" aria-pressed="false">OFF：画面全体</button>
+      <div class="control-head"><label>外縁の収まり</label><output id="boundaryState">未適用</output></div>
+      <div class="boundary-toggle">
+        <button id="boundaryBtn" type="button" aria-pressed="false">外縁に収めない</button>
       </div>
+      <div id="boundaryHelp" class="boundary-help">現在：外周円の内側に収まっています。ボタンでこの制約を外します。</div>
     </div>
 
     <div class="check"><input id="showLinks" type="checkbox" checked><label for="showLinks">ホバー時に関係線を表示</label></div>
@@ -417,13 +417,13 @@ function containViewport(){
 function setBoundaryMode(nextFree){
   if(nextFree===freeBoundary)return;
   freeBoundary=nextFree;
-  const boundaryContainBtn=document.getElementById('boundaryContainBtn');
-  const boundaryFreeBtn=document.getElementById('boundaryFreeBtn');
-  boundaryContainBtn.classList.toggle('active',!freeBoundary);
-  boundaryFreeBtn.classList.toggle('active',freeBoundary);
-  boundaryContainBtn.setAttribute('aria-pressed',String(!freeBoundary));
-  boundaryFreeBtn.setAttribute('aria-pressed',String(freeBoundary));
-  document.getElementById('boundaryState').textContent=freeBoundary?'OFF：画面全体':'ON：円内';
+  const boundaryBtn=document.getElementById('boundaryBtn');
+  boundaryBtn.classList.toggle('active',freeBoundary);
+  boundaryBtn.setAttribute('aria-pressed',String(freeBoundary));
+  document.getElementById('boundaryState').textContent=freeBoundary?'適用中':'未適用';
+  document.getElementById('boundaryHelp').textContent=freeBoundary
+    ?'現在：外周円の内側には収まりません。ボタンで元に戻せます。'
+    :'現在：外周円の内側に収まっています。ボタンでこの制約を外します。';
   document.querySelectorAll('.boundary-control').forEach(el=>{
     el.classList.toggle('disabled',freeBoundary);
     el.querySelectorAll('input').forEach(input=>input.disabled=freeBoundary);
@@ -612,8 +612,7 @@ document.getElementById('resetBtn').onclick=resetPositions;
 document.getElementById('shuffleZBtn').onclick=shuffleZOrder;
 document.getElementById('containBtn').onclick=containAll;
 document.getElementById('fitBtn').onclick=fitOuter;
-document.getElementById('boundaryContainBtn').onclick=()=>setBoundaryMode(false);
-document.getElementById('boundaryFreeBtn').onclick=()=>setBoundaryMode(true);
+document.getElementById('boundaryBtn').onclick=()=>setBoundaryMode(!freeBoundary);
 document.getElementById('grayBtn').onclick=()=>{grayscale=!grayscale};
 document.getElementById('exportBtn').onclick=()=>{
   const clone=svg.cloneNode(true);clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
